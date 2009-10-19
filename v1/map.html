@@ -10,11 +10,11 @@ function draw_square(freq,left,top) {
 		else if (freq==3)	colour = '#cc0000';		
 		else colour = '#ff0000';		
 		size =  map_width * 0.01;
+//alert("top="+(top*map_width)+" left="+ (left*map_width)+" size="+size);
     dot = '<div style="position:absolute;width:' + size + 'px;height:' + size + 'px;top:' + (top*map_width) + 'px;left:' + (left*map_width) + 'px;background:'+colour+'"></div>';
     document.body.innerHTML += dot;
 }
 function plot() {
-draw_square(1,0.06,0.32);
 draw_square(1,0.15,0.27);
 draw_square(4,0.16,0.27);
 draw_square(4,0.17,0.28);

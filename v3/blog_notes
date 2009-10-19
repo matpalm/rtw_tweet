@@ -1,0 +1,62 @@
+for v3 lets aggregate by time of the day, should make for an interesting animation
+
+10 min chunks = 144 chunks over day = 5s at 25fps
+
+browsing the data there are lots of other lat longs in data, not just iPhone: and ÜT: 
+there are also one tagged with Coppó:, Pre:, etc 
+perhaps should just try to take anything that looks like a lat long
+
+zcat sample.gz | ./extract_locations.rb > time_locations
+{time,location}
+
+Wed Oct 14 22:01:41 +0000 2009	iPhone: -23.492420,-46.846916
+Wed Oct 14 22:01:41 +0000 2009	Ottawa
+Wed Oct 14 22:01:41 +0000 2009	DA HOOD
+Wed Oct 14 22:01:42 +0000 2009	Earth
+Wed Oct 14 22:01:41 +0000 2009	有明海周辺地域
+
+cat time_locations | ./extract_lat_longs_from_locations.rb > time_lat_lons
+{time,lat,lon}
+
+Wed Oct 14 22:01:41 +0000 2009	-23.49242	-46.846916
+Wed Oct 14 22:05:25 +0000 2009	35.670086	139.740766
+Wed Oct 14 22:11:35 +0000 2009	41.37731257	-74.68153942
+Wed Oct 14 22:15:18 +0000 2009	51.503212	5.478329
+Wed Oct 14 22:21:56 +0000 2009	30.445587	-84.349799
+
+cat time_lat_lons | ./lat_long_to_merc_and_bucket.rb > time_x_y_points
+{time_slot, x, y}
+
+132	0.36	0.45
+132	0.88	0.28
+133	0.29	0.26
+133	0.51	0.22
+134	0.26	0.29
+
+when running in hadoop we'll do it all in one hit
+
+cat bucketify.sh
+ruby extract_locations.rb |\
+ ruby extract_lat_longs_from_locations.rb |\
+ ruby lat_long_to_merc_and_bucket.rb
+
+mkdir json_stream
+cp sample.gz json_stream
+export HADOOP_STREAMING_JAR=$HADOOP_HOME/contrib/streaming/hadoop-*-streaming.jar
+hadoop jar $HADOOP_STREAMING_JAR \
+	-mapper 'sh bucketify.sh' -reducer /bin/cat \
+	-input json_stream -output x_y_points
+
+then bucketify
+
+pig -x local -f freqs.pig
+
+and generate an image
+
+( see http://blog.inlet-media.de/rmagick-does-not-play-well-on-ubuntu for instructions on rmagick easy install on ubuntu )
+heat_map.rb min_max freqs image.jpg
+
+
+generate an image from file with
+
+
