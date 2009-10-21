@@ -6,6 +6,8 @@ browsing the data there are lots of other lat longs in data, not just iPhone: an
 there are also one tagged with Coppó:, Pre:, etc 
 perhaps should just try to take anything that looks like a lat long
 
+furthermore lets switch to a bigger dataset again, 4.7e6 tweets from Oct 13 07:00 thru Oct 19 17:00, 
+
 zcat sample.gz | ./extract_locations.rb > time_locations
 {time,location}
 
@@ -24,14 +26,16 @@ Wed Oct 14 22:11:35 +0000 2009	41.37731257	-74.68153942
 Wed Oct 14 22:15:18 +0000 2009	51.503212	5.478329
 Wed Oct 14 22:21:56 +0000 2009	30.445587	-84.349799
 
-cat time_lat_lons | ./lat_long_to_merc_and_bucket.rb > time_x_y_points
-{time_slot, x, y}
+this reduces the set to 320e3 tweets that had identfiable lat/lons
 
-132	0.36	0.45
-132	0.88	0.28
-133	0.29	0.26
-133	0.51	0.22
-134	0.26	0.29
+cat time_lat_lons | ./lat_long_to_merc_and_bucket.rb > time_x_y_points
+{time_slot (rounded down to last 10min), x mercator projection of lat, y mercator projection of lon}
+
+2200	0.36	0.45
+2200	0.88	0.28
+2210	0.29	0.26
+2210	0.51	0.22
+2220	0.26	0.29
 
 when running in hadoop we'll do it all in one hit
 
@@ -46,17 +50,102 @@ export HADOOP_STREAMING_JAR=$HADOOP_HOME/contrib/streaming/hadoop-*-streaming.ja
 hadoop jar $HADOOP_STREAMING_JAR \
 	-mapper 'sh bucketify.sh' -reducer /bin/cat \
 	-input json_stream -output x_y_points
+  -cmdenv BUCKET_SIZE=0.005
 
-then bucketify
+minor digression
 
-pig -x local -f freqs.pig
+before we look at the aggregation based on time slots lets redo the overall tweet location graph
 
-and generate an image
+we do this by aggregating on x,y and couting up the frequencies like in v2
+
+bash> pig -x local -f freqs.pig
+
+generate an image with
 
 ( see http://blog.inlet-media.de/rmagick-does-not-play-well-on-ubuntu for instructions on rmagick easy install on ubuntu )
-heat_map.rb min_max freqs image.jpg
+bash> ./heat_map.rb min_max freqs 0.005 image.jpg
+
+running over a bigger set
+
+consider 4.7e6 tweets from Oct 13 07:00 thru Oct 19 17:00, 
+there are 320e3 tweets with identfiable lat/lons
+
+<img timeslices_freq.jpg>
+
+# timeslice frequency table
+grunt> pts = load 'x_y_points/*' as (timeslice:chararray, x:float, y:float); 
+grunt> timeslices = group pts by timeslice;
+grunt> timeslices_freq = foreach timeslices { generate group, SIZE(pts) as freq; } 
+grunt> store timeslices_freq into 'timeslices_freq';
+
+# plotting with R
+R> data = read.delim('timeslices_freq', header=FALSE)
+R> jpeg("timeslices_freq.jpg", width = 1000, height = 480)
+R> plot(data, type='l', xlab="time of day", ylab="frequency")
+R> points(data$V1, data$V2, pch=20)
+R> title("time of tweets")
+R> dev.off()
+
+how does this compare to the overall time of day for tweets? 
+
+# extract created_at from all json stream
+bash> hadoop jar $HADOOP_STREAMING_JAR -mapper extract_created_at.rb -reducer /bin/cat -input json_stream -output created_at
+
+# timeslice frequency table
+grunt> pts = load 'created_at/*' as (timeslice:chararray); 
+grunt> timeslices = group pts by timeslice;
+grunt> timeslices_freq = foreach timeslices { generate group, SIZE(pts) as freq; } 
+grunt> store timeslices_freq into 'created_at_timeslices_freq';
+
+# plot with R
+bash
+
+# aggregating per timeslice
+grunt> pts = load 'x_y_points/*' as (timeslice:chararray, x:float, y:float); 
+grunt> by_timeslice = group pts by timeslice;
+grunt> by_timeslice_freq = foreach by_timeslice { generate group, SIZE(pts) as size; }
 
 
-generate an image from file with
+
+
+pts = load 'f' as (timeslice:chararray, x:float, y:float);    
+pts2 = group pts by (timeslice,x,y);
+pts3 = foreach pts2 generate $0, COUNT($1) ;
+pts4 = foreach pts3 generate $0.$0, $0.$1, $0.$2, $1 as freq;
+{timeslice: chararray,x: float,y: float,freq: long}
+(00:00,0.3F,0.255F,2L)
+(00:00,0.495F,0.22F,1L)
+(00:10,0.285F,0.275F,2L)
+(00:10,0.29F,0.26F,1L)
+(00:20,0.23F,0.29F,1L)
+(00:20,0.23F,0.3F,1L)
+(00:20,0.285F,0.275F,1L)
+
+mm_freq = foreach pts4 generate timeslice, freq; 
+mm_freq2 = group mm_freq by timeslice;
+mm_freq3 = foreach mm_freq2 { generate group, MIN(mm_freq.freq) as min, MAX(mm_freq.freq) as max; }
+{group: chararray,min: long,max: long}
+(00:00,1L,2L)
+(00:10,1L,2L)
+(00:20,1L,2L)
+
+
+- read min_max file
+foreach lhs,
+ open new file
+
+foreach pts4
+ plot pixel
+
+close all files
+
+
+could we partition by timeslice using streaming? ie cat mapper and 144 cat reducers?
+ 
+
+
+
+
+
 
 

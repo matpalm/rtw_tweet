@@ -1,4 +1,4 @@
-pts = load 'x_y_points/*' as (time_slice:int, x:float, y:float);
+pts = load 'x_y_points/*' as (time_slice:chararray, x:float, y:float);
 buckets = group pts by (x,y); 
 freq = foreach buckets { generate group, SIZE(pts) as size; }
 store freq into 'freqs';
