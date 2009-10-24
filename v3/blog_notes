@@ -58,6 +58,10 @@ sample output
 
 4. aggregate (x,y) pairs per timeslice
 
+next we aggreate, per timeslice, the frequency of points each x,y point.
+
+we'll do this with a pig script, aggregate_per_timeslice.pig
+
 # aggregating per timeslice
 pts = load 'x_y_points/part-00000' as (timeslice:int, x:float, y:float);    
 pts2 = group pts by (timeslice,x,y);
@@ -66,35 +70,26 @@ pts4 = foreach pts3 generate $0.$0, $0.$1, $0.$2, $1 as freq;
 pts5 = order pts4 by timeslice;
 store pts5 into 'aggregated_freqs';
 
-{timeslice: chararray,x: float,y: float,freq: long}
+results in the tuples in 'aggregated_freqs'
+{ timeslice, normalised x position, normalised y position, frequency }
 0	0.0	0.32	1
 0	0.06	0.325	9
 0	0.065	0.33	1
 0	0.08	0.17	2
 0	0.155	0.225	8
 
-mm_freq = foreach pts4 generate timeslice, freq; 
-mm_freq2 = group mm_freq by timeslice;
-mm_freq3 = foreach mm_freq2 { generate group, MIN(mm_freq.freq) as min, MAX(mm_freq.freq) as max; }
-store mm_freq3 into 'mm_freq';
+we need to normalise each frequency value for drawing on the map and would have like to have done this in pig also but turns out there isn't a
+log function in v0.3 of pig (??)
 
-{group: chararray,min: long,max: long}
-0	1	413
-1	1	419
-2	1	444
-3	1	413
-4	1	424
+will have to do scaling when generating the images. isn't such a big deal since the dataset is quite small at this stage but was trying to use
+this whole thing as an excuse to learn pig :(
 
-would have like to have done the freq rescaling in pig also but turns out there isn't a
-log function in v0.3 of pig so will have to do scaling when generating the images. 
-
-isn't such a big deal since this occurs after the time and space bucketing so there is not that much data
-in the end, it's all been aggregated. so it turns out the finding of the min/max isn't really required then since
-the data for a single timeslice can be held in memory when generating the heat maps.
-
-take aggregated_freqs and make 144 heat map images
+5. take aggregated_freqs and make 144 heat map images
 
 heat_maps.rb aggregated_freqs 0.005 frames
+
+6. convert to animation
+
 mencoder mencoder "mf://frames/*" -mf fps=25 -o rtw_tweet_v3.avi -ovc x264 -x264encopts bitrate=750
 upload rtw_tweet_v3.avi youtube
 
