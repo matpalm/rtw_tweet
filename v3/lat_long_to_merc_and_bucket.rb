@@ -10,9 +10,9 @@ STDIN.each do |line|
 	time,lat,lon = line.split "\t"
 	lat,lon = lat.to_f, lon.to_f
 
-	# bucket time into a N min chunk of day
-	time =~ / (\d\d):(\d)\d:\d\d \+00/		
-	time_slot = "#{$1}:#{$2}0" # 10min time bucket
+	# bucket time into a 10 min chunk of day
+	time =~ / (\d\d):(\d\d):\d\d \+00/		
+	time_slot = ($1.to_i * 60 + $2.to_i) / 10
 
 	# convert to mercator
 	x = (180 + lon) / 360

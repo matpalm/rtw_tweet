@@ -1,150 +1,106 @@
 for v3 lets aggregate by time of the day, should make for an interesting animation
 
-10 min chunks = 144 chunks over day = 5s at 25fps
-
 browsing the data there are lots of other lat longs in data, not just iPhone: and ÜT: 
 there are also one tagged with Coppó:, Pre:, etc 
 perhaps should just try to take anything that looks like a lat long
 
 furthermore lets switch to a bigger dataset again, 4.7e6 tweets from Oct 13 07:00 thru Oct 19 17:00, 
 
-zcat sample.gz | ./extract_locations.rb > time_locations
-{time,location}
+i've been streaming all my tweets (as previusly discussed [http://matpalm.com/blog/2009/10/16/e11-0-tweets-around-the-world/]) and
+been storing them in a directory json_stream
 
+1. extract locations
+
+export HADOOP_STREAMING_JAR=$HADOOP_HOME/contrib/streaming/hadoop-*-streaming.jar
+hadoop jar $HADOOP_STREAMING_JAR \
+	-mapper ./extract_locations.rb -reducer /bin/cat \
+	-input json_stream -output locations
+  -cmdenv BUCKET_SIZE=0.005
+
+sample output (4.7e6 tuples)
+{ time, location string }
 Wed Oct 14 22:01:41 +0000 2009	iPhone: -23.492420,-46.846916
 Wed Oct 14 22:01:41 +0000 2009	Ottawa
 Wed Oct 14 22:01:41 +0000 2009	DA HOOD
 Wed Oct 14 22:01:42 +0000 2009	Earth
 Wed Oct 14 22:01:41 +0000 2009	有明海周辺地域
 
-cat time_locations | ./extract_lat_longs_from_locations.rb > time_lat_lons
-{time,lat,lon}
+2. pluck lat longs from locations
 
+hadoop jar $HADOOP_STREAMING_JAR \
+  -mapper extract_lat_longs_from_locations.rb -reducer /bin/cat \
+  -input locations -output lat_lons
+
+sample output (reduces down to 320e3 data points)
+{ time, lat, lon }
 Wed Oct 14 22:01:41 +0000 2009	-23.49242	-46.846916
 Wed Oct 14 22:05:25 +0000 2009	35.670086	139.740766
 Wed Oct 14 22:11:35 +0000 2009	41.37731257	-74.68153942
 Wed Oct 14 22:15:18 +0000 2009	51.503212	5.478329
 Wed Oct 14 22:21:56 +0000 2009	30.445587	-84.349799
 
-this reduces the set to 320e3 tweets that had identfiable lat/lons
+3. bucket data into timeslices and points for a map.
 
-cat time_lat_lons | ./lat_long_to_merc_and_bucket.rb > time_x_y_points
-{time_slot (rounded down to last 10min), x mercator projection of lat, y mercator projection of lon}
+we need to project the times into 10min slots; ie 00:05 will be slot 0, 00:12 will be slot 1
+also use a mercator projection to convert lat lons to x and y coords (0->1)
 
-2200	0.36	0.45
-2200	0.88	0.28
-2210	0.29	0.26
-2210	0.51	0.22
-2220	0.26	0.29
-
-when running in hadoop we'll do it all in one hit
-
-cat bucketify.sh
-ruby extract_locations.rb |\
- ruby extract_lat_longs_from_locations.rb |\
- ruby lat_long_to_merc_and_bucket.rb
-
-mkdir json_stream
-cp sample.gz json_stream
-export HADOOP_STREAMING_JAR=$HADOOP_HOME/contrib/streaming/hadoop-*-streaming.jar
 hadoop jar $HADOOP_STREAMING_JAR \
-	-mapper 'sh bucketify.sh' -reducer /bin/cat \
-	-input json_stream -output x_y_points
-  -cmdenv BUCKET_SIZE=0.005
+  -mapper lat_long_to_merc_and_bucket.rb -reducer /bin/cat \
+  -cmdenv BUCKET_SIZE=0.005 \
+  -input lat_lons -output x_y_points
 
-minor digression
+sample output 
+{ timeslice, normalised x position, normalised y position }
+122     0.48    0.205
+122     0.295   0.26
+122     0.29    0.26
+123     0.265   0.265
 
-before we look at the aggregation based on time slots lets redo the overall tweet location graph
-
-we do this by aggregating on x,y and couting up the frequencies like in v2
-
-bash> pig -x local -f freqs.pig
-
-generate an image with
-
-( see http://blog.inlet-media.de/rmagick-does-not-play-well-on-ubuntu for instructions on rmagick easy install on ubuntu )
-bash> ./heat_map.rb min_max freqs 0.005 image.jpg
-
-running over a bigger set
-
-consider 4.7e6 tweets from Oct 13 07:00 thru Oct 19 17:00, 
-there are 320e3 tweets with identfiable lat/lons
-
-<img timeslices_freq.jpg>
-
-# timeslice frequency table
-grunt> pts = load 'x_y_points/*' as (timeslice:chararray, x:float, y:float); 
-grunt> timeslices = group pts by timeslice;
-grunt> timeslices_freq = foreach timeslices { generate group, SIZE(pts) as freq; } 
-grunt> store timeslices_freq into 'timeslices_freq';
-
-# plotting with R
-R> data = read.delim('timeslices_freq', header=FALSE)
-R> jpeg("timeslices_freq.jpg", width = 1000, height = 480)
-R> plot(data, type='l', xlab="time of day", ylab="frequency")
-R> points(data$V1, data$V2, pch=20)
-R> title("time of tweets")
-R> dev.off()
-
-how does this compare to the overall time of day for tweets? 
-
-# extract created_at from all json stream
-bash> hadoop jar $HADOOP_STREAMING_JAR -mapper extract_created_at.rb -reducer /bin/cat -input json_stream -output created_at
-
-# timeslice frequency table
-grunt> pts = load 'created_at/*' as (timeslice:chararray); 
-grunt> timeslices = group pts by timeslice;
-grunt> timeslices_freq = foreach timeslices { generate group, SIZE(pts) as freq; } 
-grunt> store timeslices_freq into 'created_at_timeslices_freq';
-
-# plot with R
-bash
+4. aggregate (x,y) pairs per timeslice
 
 # aggregating per timeslice
-grunt> pts = load 'x_y_points/*' as (timeslice:chararray, x:float, y:float); 
-grunt> by_timeslice = group pts by timeslice;
-grunt> by_timeslice_freq = foreach by_timeslice { generate group, SIZE(pts) as size; }
-
-
-
-
-pts = load 'f' as (timeslice:chararray, x:float, y:float);    
+pts = load 'x_y_points/part-00000' as (timeslice:int, x:float, y:float);    
 pts2 = group pts by (timeslice,x,y);
 pts3 = foreach pts2 generate $0, COUNT($1) ;
 pts4 = foreach pts3 generate $0.$0, $0.$1, $0.$2, $1 as freq;
+pts5 = order pts4 by timeslice;
+store pts5 into 'aggregated_freqs';
+
 {timeslice: chararray,x: float,y: float,freq: long}
-(00:00,0.3F,0.255F,2L)
-(00:00,0.495F,0.22F,1L)
-(00:10,0.285F,0.275F,2L)
-(00:10,0.29F,0.26F,1L)
-(00:20,0.23F,0.29F,1L)
-(00:20,0.23F,0.3F,1L)
-(00:20,0.285F,0.275F,1L)
+0	0.0	0.32	1
+0	0.06	0.325	9
+0	0.065	0.33	1
+0	0.08	0.17	2
+0	0.155	0.225	8
 
 mm_freq = foreach pts4 generate timeslice, freq; 
 mm_freq2 = group mm_freq by timeslice;
 mm_freq3 = foreach mm_freq2 { generate group, MIN(mm_freq.freq) as min, MAX(mm_freq.freq) as max; }
+store mm_freq3 into 'mm_freq';
+
 {group: chararray,min: long,max: long}
-(00:00,1L,2L)
-(00:10,1L,2L)
-(00:20,1L,2L)
+0	1	413
+1	1	419
+2	1	444
+3	1	413
+4	1	424
 
+would have like to have done the freq rescaling in pig also but turns out there isn't a
+log function in v0.3 of pig so will have to do scaling when generating the images. 
 
-- read min_max file
-foreach lhs,
- open new file
+isn't such a big deal since this occurs after the time and space bucketing so there is not that much data
+in the end, it's all been aggregated. so it turns out the finding of the min/max isn't really required then since
+the data for a single timeslice can be held in memory when generating the heat maps.
 
-foreach pts4
- plot pixel
+take aggregated_freqs and make 144 heat map images
 
-close all files
+heat_maps.rb aggregated_freqs 0.005 frames
+mencoder mencoder "mf://frames/*" -mf fps=25 -o rtw_tweet_v3.avi -ovc x264 -x264encopts bitrate=750
+upload rtw_tweet_v3.avi youtube
 
+http://www.youtube.com/watch?v=cSnGI33CwP0
 
-could we partition by timeslice using streaming? ie cat mapper and 144 cat reducers?
- 
-
-
-
+<object width="425" height="344"><param name="movie" value="http://www.youtube.com/v/cSnGI33CwP0&hl=en&fs=1&"></param><param name="allowFullScreen" value="true"></param><param name="allowscriptaccess" value="always"></param><embed src="http://www.youtube.com/v/cSnGI33CwP0&hl=en&fs=1&" type="application/x-shockwave-flash" allowscriptaccess="always" allowfullscreen="true" width="425" height="344"></embed></object>
 
 
 
