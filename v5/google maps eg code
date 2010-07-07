@@ -1,0 +1,17 @@
+// for http://code.google.com/apis/ajax/playground/?exp=maps#map_polygon_simple
+
+function initialize() {
+  if (GBrowserIsCompatible()) {
+    var map = new GMap2(document.getElementById("map_canvas"));
+    map.addControl(new GSmallMapControl());
+    map.setCenter(new GLatLng(34.74,-112.009), 13);
+ 
+		centre = [41.278,-86.046];
+
+		var pts = [];
+		x=centre[0]; y=centre[1];
+		pts = [new GLatLng(x+0.3,y+0.3),new GLatLng(x+0.3,y-0.3),new GLatLng(x-0.3,y-0.3),new GLatLng(x-0.3,y+0.3),new GLatLng(x+0.3,y+0.3)];
+    map.addOverlay(new GPolygon(pts, "#ff0000",2,1,"#ff0000",0.1));
+
+  }
+}​

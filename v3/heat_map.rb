@@ -56,6 +56,7 @@ class HeatMap
 end
 
 =begin
+# made to be run from heat_maps.rb
 raise "heapmap.rb INPUT_DATA_FILE BUCKET_SIZE OUTPUT_JPG " unless ARGV.length==3
 INPUT_DATA_FILE, BUCKET_SIZE, OUTPUT_JPG = ARGV
 HeatMap.new(BUCKET_SIZE).read_data_file(INPUT_DATA_FILE).rescale_and_write_to(OUTPUT_JPG)
