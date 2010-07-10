@@ -1,17 +1,33 @@
-// for http://code.google.com/apis/ajax/playground/?exp=maps#map_polygon_simple
+
+    
+    function marker(b, text) {      
+      var marker = new GMarker(new GLatLng((b[0]+b[2])/2,(b[1]+b[3])/2));
+      GEvent.addListener(marker, "click", function() {
+        marker.openInfoWindowHtml(""+b[4]);
+      });
+      return marker;
+    }
+
+function poly(b) {  
+  return new GPolygon([new GLatLng(b[0],b[1]),new GLatLng(b[0],b[3]),new GLatLng(b[2],b[3]),new GLatLng(b[2],b[1]),new GLatLng(b[0],b[1])], "#ff0000",2,1,"#ff0000",0.1)
+}
 
 function initialize() {
   if (GBrowserIsCompatible()) {
     var map = new GMap2(document.getElementById("map_canvas"));
-    map.addControl(new GSmallMapControl());
-    map.setCenter(new GLatLng(34.74,-112.009), 13);
- 
-		centre = [41.278,-86.046];
-
-		var pts = [];
-		x=centre[0]; y=centre[1];
-		pts = [new GLatLng(x+0.3,y+0.3),new GLatLng(x+0.3,y-0.3),new GLatLng(x-0.3,y-0.3),new GLatLng(x-0.3,y+0.3),new GLatLng(x+0.3,y+0.3)];
-    map.addOverlay(new GPolygon(pts, "#ff0000",2,1,"#ff0000",0.1));
-
+    map.enableScrollWheelZoom();
+    map.addControl(new GLargeMapControl());
+    
+    bs=[
+     [-37.81,144.977,-37.823,144.958,123],
+     [25.955,-79.969,25.595,-80.418,456]
+    ];
+    for(i=0;i<bs.length;i++) {
+      b = bs[i];
+      map.addOverlay(poly(b));
+      map.addOverlay(marker(b,"computer says yes...."));    
+    }
+    map.setCenter(new GLatLng(-37.81,144.977), 12);
   }
-}​
+}
+​

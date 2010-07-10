@@ -16,6 +16,7 @@ STDIN.each do |line|
     lat1,lat2,long1,long2 = lat_longs.split(',').map{|v| v.to_f}
     next unless lat1 && lat2 && long1 && long2
     next unless lat1.valid_lat? && lat2.valid_lat? && long1.valid_long? && long2.valid_long?
+    next if lat1==lat2 || long1==long2
     lat1,lat2 = lat2,lat1 if lat1 < lat2
     long1,long2 = long2,long1 if long1 < long2
     puts [lat1,long1,lat2,long2].join("\t")
