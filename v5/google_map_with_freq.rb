@@ -13,15 +13,6 @@ def gLatLong(lat,long)
   "new GLatLng(#{lat},#{long})"
 end
 
-def close(a,b,x)
-  ((a-b).abs - x).abs < 0.000001
-end
-
-# guessing this is an iphone lat/long 0.6 0.6 apart
-def iphone_lat_long?(lat1,lat2,long1,long2)
-  close(lat1,lat2,0.6) && close(long1,long2,0.6)
-end
-
 puts <<EOF
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml">
@@ -46,10 +37,8 @@ pts = []
 min_freq = max_freq = nil
 
 STDIN.each do |line|
-  line.chomp!
-  line =~ /\s+(\d+) (.*)/
-  freq, coords = Math.log($1.to_f), $2
-  lat1,long1,lat2,long2 = coords.split("\t").map{|v|v.to_f.scaled}
+  freq,lat1,long1,lat2,long2 = line.chomp.split("\t").map{|v|v.to_f.scaled}
+  freq = Math.log(freq)
   raise "expected lat/long pairs to NOT be equal [#{line}]" if lat1==lat2 || long1==long2
   raise "expected lat/long1 to be GREATER thatn lat1/long2 [#{line}]" unless lat1>lat2 && long1>long2
 

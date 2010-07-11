@@ -1,8 +1,7 @@
 world heap map overlay for bb searches
 
 see
-$ make_iphone_search_heat_map.sh
-$ make_iphone_searches_around_ny.sh
+$ make_iphone_search_heat_map.sh bb_2010_06
 $ make_most_freq_non_iphone_google_map.sh
 
 

@@ -9,7 +9,7 @@ class Float
 end
 
 STDIN.each do |line|
-  begin
+  #begin
     line =~ /Parameters.*bounding_box"=>"(.*?)"/
     lat_longs = $1
     next unless lat_longs
@@ -20,9 +20,9 @@ STDIN.each do |line|
     lat1,lat2 = lat2,lat1 if lat1 < lat2
     long1,long2 = long2,long1 if long1 < long2
     puts [lat1,long1,lat2,long2].join("\t")
-  rescue Exception => e
-    STDERR.puts "FAIL ON line=#{line}"
-    STDERR.puts e.inspect
-  end
+  #rescue Exception => e
+  #  STDERR.puts "FAIL ON line=#{line}"
+  #  STDERR.puts e.inspect
+  #end
 end
 

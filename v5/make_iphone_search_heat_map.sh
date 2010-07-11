@@ -10,10 +10,10 @@ let SPLIT_SIZE=$TOTAL_LINES/4
 split -l $SPLIT_SIZE to_process
 
 # extract lat longs, filter only those looking like iphone screen sized ones and emit centres
-cat xaa | ./lat_longs.rb | ./iphone_centres.rb | sort > xaa.lat_long_pair &
-cat xab | ./lat_longs.rb | ./iphone_centres.rb | sort > xab.lat_long_pair &
-cat xac | ./lat_longs.rb | ./iphone_centres.rb | sort > xac.lat_long_pair &
-cat xad | ./lat_longs.rb | ./iphone_centres.rb | sort > xad.lat_long_pair &
+cat xaa | ./lat_longs.rb | ./iphone_query.rb | ./centres.rb | sort > xaa.lat_long_pair &
+cat xab | ./lat_longs.rb | ./iphone_query.rb | ./centres.rb | sort > xab.lat_long_pair &
+cat xac | ./lat_longs.rb | ./iphone_query.rb | ./centres.rb | sort > xac.lat_long_pair &
+cat xad | ./lat_longs.rb | ./iphone_query.rb | ./centres.rb | sort > xad.lat_long_pair &
 wait
 
 # collate output
